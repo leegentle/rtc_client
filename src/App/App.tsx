@@ -1,4 +1,4 @@
-import { FC, useState, useEffect, ChangeEvent, FormEvent } from "react";
+import React, { ChangeEvent, FormEvent } from "react";
 import "./App.css";
 import socketIOClient from "socket.io-client";
 
@@ -6,20 +6,18 @@ interface Message {
   name: string;
   message: string;
 }
-const App: FC = () => {
-  const [messageList, setMessageList] = useState<Message[]>([]);
-  const [name, setName] = useState("");
-  const [value, setValue] = useState("");
-  const socket = socketIOClient("ws://localhost:3001/socket.io", {
+const App: React.FC = () => {
+  const [messageList, setMessageList] = React.useState<Message[]>([]);
+  const [name, setName] = React.useState("");
+  const [value, setValue] = React.useState("");
+  const socket = socketIOClient("localhost:4002", {
     transports: ["websocket"],
   });
-
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     socket.emit("send message", { name: name, message: value });
   };
-
-  useEffect(() => {
+  React.useEffect(() => {
     socket.on(
       "receive message",
       (message: { name: string; message: string }) => {
