@@ -1,9 +1,15 @@
-import React from "react";
-import * as ReactDOM from "react-dom/client";
+import ReactDOM from "react-dom/client";
 import App from "./App/App";
 import reportWebVitals from "./reportWebVitals";
+import { BrowserRouter } from "react-router-dom";
 
-const root = ReactDOM.createRoot(document.getElementById("root")!);
-if (!root) throw new Error("Failed to find the root element");
-root.render(<App />);
+const root = ReactDOM.createRoot(
+  document.getElementById("root") as HTMLElement
+);
+root.render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
+);
+
 reportWebVitals();
