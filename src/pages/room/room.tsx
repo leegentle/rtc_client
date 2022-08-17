@@ -7,23 +7,19 @@ import React, {
   FormEvent,
 } from "react";
 import { useMatch } from "react-router-dom";
-
 import "./room.scss";
 import socketIOClient from "socket.io-client";
 
-interface Message {
+interface msgType {
   name: string;
-  message: string;
+  value: string;
 }
+
 const App: FC = () => {
   const {
-    params: { room },
+    params: { room: roomName },
   } = useMatch("/room/:room")!;
-
-  const [messageList, setMessageList] = useState<Message[]>([]);
-  const [name, setName] = useState("");
-  const [value, setValue] = useState("");
-
+  let myPeerCon: any;
   const socket = useMemo(
     () =>
       socketIOClient("localhost:4002", {
@@ -32,37 +28,68 @@ const App: FC = () => {
     []
   );
 
+  const [name, setName] = useState("");
+  const [value, setValue] = useState("");
+  const [msgList, setMsgList] = useState<msgType[]>([]);
+
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    socket.emit("send message", { name: name, message: value });
+    socket.emit("msg", { name: name, message: value }, roomName);
   };
 
   const socketEvent = () => {
-    socket.on(
-      "receive message",
-      (message: { name: string; message: string }) => {
-        console.log("dd");
-        setMessageList((messageList) => messageList.concat(message));
-      }
-    );
+    socket.emit("join_room", roomName);
 
-    socket.emit("join_room", room);
+    socket.on("welcome", async () => {
+      console.log("웰컴");
+      const offer = await myPeerCon.createOffer();
+      console.log(offer);
+      myPeerCon.setLocalDescription(offer);
+      socket.emit("offer", offer, roomName);
+    });
+
+    socket.on("offer", async (offer) => {
+      myPeerCon.setRemoteDescription(offer);
+      const answer = await myPeerCon.createAnswer();
+      myPeerCon.setLocalDescription(answer);
+      socket.emit("answer", answer, roomName);
+    });
+
+    socket.on("answer", (answer) => {
+      myPeerCon.setRemoteDescription(answer);
+    });
+
+    socket.on("ice", (ice) => {
+      myPeerCon.addIceCandidate(ice);
+      console.log("얼음 받았다");
+    });
+    socket.on("msg", (msg: string) => {
+      console.log(msg);
+    });
+  };
+  const handleIce = (data: any) => {
+    socket.emit("ice", data.candidate, roomName);
+    console.log("얼음보냈다");
+  };
+
+  const handleAddStream = (data: any) => {
+    console.log("애드스트림");
+    console.log(data.stream);
+  };
+
+  const makeConnection = () => {
+    myPeerCon = new RTCPeerConnection();
+    myPeerCon.addEventListener("icecandidate", handleIce);
+    myPeerCon.addEventListener("addstream", handleAddStream);
   };
 
   useEffect(() => {
     socketEvent();
+    makeConnection();
   }, []);
 
   return (
     <div className="App">
-      <section className="chat-list">
-        {messageList.map((item: Message, i: number) => (
-          <div key={i} className="message">
-            <p className="username">{item.name.toUpperCase()}</p>
-            <p className="message-text">{item.message}</p>
-          </div>
-        ))}
-      </section>
       <form
         className="chat-form"
         onSubmit={(e: FormEvent<HTMLFormElement>) => submit(e)}
