@@ -6,20 +6,28 @@ import React, {
   ChangeEvent,
   FormEvent,
 } from "react";
-import { useMatch } from "react-router-dom";
+import { useMatch, useLocation } from "react-router-dom";
 import "./room.scss";
 import socketIOClient from "socket.io-client";
+import Button from "antd/lib/button";
+import Input from "antd/lib/input";
 
 interface msgType {
   name: string;
   value: string;
 }
 
+interface Users {
+  socketid: string;
+  nick: string;
+}
+
 const App: FC = () => {
   const {
     params: { room: roomName },
   } = useMatch("/room/:room")!;
-  let myPeerCon: any;
+  const { state }: { state: any } = useLocation()!;
+  let cons: { [socketId: string]: RTCPeerConnection } = {};
   const socket = useMemo(
     () =>
       socketIOClient("localhost:4002", {
@@ -28,44 +36,64 @@ const App: FC = () => {
     []
   );
 
-  const [name, setName] = useState("");
   const [value, setValue] = useState("");
   const [msgList, setMsgList] = useState<msgType[]>([]);
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    socket.emit("msg", { name: name, message: value }, roomName);
+    console.log(value);
+    socket.emit("msg", { name: state.nick, message: value }, roomName);
   };
 
   const socketEvent = () => {
-    socket.emit("join_room", roomName);
+    socket.emit("join_room", { roomName: roomName, nick: state.nick });
 
-    socket.on("welcome", async () => {
-      console.log("웰컴");
-      const offer = await myPeerCon.createOffer();
-      console.log(offer);
-      myPeerCon.setLocalDescription(offer);
-      socket.emit("offer", offer, roomName);
+    socket.on("otherUsers", (users: Users[]) => {
+      console.log("dd");
+      console.log(users);
+
+      users.forEach(async (user) => {
+        const { socketid } = user;
+        const con = new RTCPeerConnection();
+        const offer = await con.createOffer();
+        con.setLocalDescription(offer);
+        cons[socketid] = con;
+
+        const data = {
+          offer,
+          sendID: socket.id,
+          receiveID: socketid,
+        };
+        socket.emit("offer", data);
+      });
     });
 
-    socket.on("offer", async (offer) => {
-      myPeerCon.setRemoteDescription(offer);
-      const answer = await myPeerCon.createAnswer();
-      myPeerCon.setLocalDescription(answer);
-      socket.emit("answer", answer, roomName);
-    });
+    // socket.on("welcome", async () => {
+    //   console.log("웰컴");
 
-    socket.on("answer", (answer) => {
-      myPeerCon.setRemoteDescription(answer);
-    });
+    //   const offer = await myPeerCon.createOffer();
+    //   myPeerCon.setLocalDescription(offer);
+    //   socket.emit("offer", offer, roomName);
+    // });
 
-    socket.on("ice", (ice) => {
-      myPeerCon.addIceCandidate(ice);
-      console.log("얼음 받았다");
-    });
-    socket.on("msg", (msg: string) => {
-      console.log(msg);
-    });
+    // socket.on("offer", async (offer) => {
+    //   myPeerCon.setRemoteDescription(offer);
+    //   const answer = await myPeerCon.createAnswer();
+    //   myPeerCon.setLocalDescription(answer);
+    //   socket.emit("answer", answer, roomName);
+    // });
+
+    // socket.on("answer", (answer) => {
+    //   myPeerCon.setRemoteDescription(answer);
+    // });
+
+    // socket.on("ice", (ice) => {
+    //   myPeerCon.addIceCandidate(ice);
+    //   console.log("얼음 받았다");
+    // });
+    // socket.on("msg", (msg: any) => {
+    //   console.log(msg);
+    // });
   };
   const handleIce = (data: any) => {
     socket.emit("ice", data.candidate, roomName);
@@ -77,15 +105,16 @@ const App: FC = () => {
     console.log(data.stream);
   };
 
-  const makeConnection = () => {
-    myPeerCon = new RTCPeerConnection();
-    myPeerCon.addEventListener("icecandidate", handleIce);
-    myPeerCon.addEventListener("addstream", handleAddStream);
-  };
+  // const makeConnection = () => {
+  //   myPeerCon = new RTCPeerConnection();
+  //   myPeerCon.addEventListener("icecandidate", handleIce);
+  //   myPeerCon.addEventListener("addstream", handleAddStream);
+  // };
 
   useEffect(() => {
     socketEvent();
-    makeConnection();
+    // makeConnection();
+    console.log(state);
   }, []);
 
   return (
@@ -95,16 +124,7 @@ const App: FC = () => {
         onSubmit={(e: FormEvent<HTMLFormElement>) => submit(e)}
       >
         <div className="chat-inputs">
-          <input
-            type="text"
-            autoComplete="off"
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setName(e.target.value)
-            }
-            value={name}
-            placeholder="유저이름"
-          />
-          <input
+          <Input
             type="text"
             autoComplete="off"
             onChange={(e: ChangeEvent<HTMLInputElement>) =>
@@ -114,7 +134,9 @@ const App: FC = () => {
             placeholder="메세지입력하기"
           />
         </div>
-        <button type="submit">입력하기</button>
+        <Button type="primary" htmlType="submit">
+          입력하기
+        </Button>
       </form>
     </div>
   );

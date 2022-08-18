@@ -7,18 +7,19 @@ import "./App.css";
 
 const App: FC = () => {
   const navigate = useNavigate();
-  const [value, setValue] = useState("");
+  const [roomName, setRoomName] = useState("");
+  const [nick, setNick] = useState("");
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
   };
 
   const goToRoom = () => {
-    if (value === "") {
+    if (roomName === "") {
       alert("방 이름을 입력해주세요");
       return;
     }
-    navigate(`/room/${value}`);
+    navigate(`/room/${roomName}`, { state: { nick: nick } });
   };
 
   useEffect(() => {}, []);
@@ -30,11 +31,19 @@ const App: FC = () => {
         onSubmit={(e: FormEvent<HTMLFormElement>) => submit(e)}
       >
         <Input
-          className="Index_form_input"
-          value={value || ""}
+          value={nick || ""}
           onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            setValue(e.target.value)
+            setNick(e.target.value)
           }
+          placeholder="닉네임 입력"
+          type="text"
+        />
+        <Input
+          value={roomName || ""}
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            setRoomName(e.target.value)
+          }
+          placeholder="방이름 입력"
           type="text"
         />
         <Button
